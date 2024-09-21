@@ -4,7 +4,14 @@ import { FaHandBackFist } from "react-icons/fa6";
 import { useLocation } from "react-router-dom";
 
 import { useEffect, useRef, useState } from "react";
-import { GAME_STATE, HAND_STATUS, IGameState, UserT } from "./type";
+import {
+  GAME_STATE,
+  HAND_STATUS,
+  IGameState,
+  UserT,
+  SocketResT,
+  MoraT,
+} from "./type";
 
 export default function Room({ socket }: any) {
   const location = useLocation();
@@ -36,11 +43,10 @@ export default function Room({ socket }: any) {
     setOpponent({ ...opponent, isReady: false, mora: HAND_STATUS.NULL });
     setUser({ ...user, isReady: false, mora: HAND_STATUS.NULL });
     setTimer(10);
-    setIsUserMora(false)
   };
 
   useEffect(() => {
-    socket.on("broadcast", (res: any) => {
+    socket.on("userJoin", (res: SocketResT) => {
       if (res.userName !== user.userName) {
         setOpponent({
           isReady: false,
@@ -49,17 +55,10 @@ export default function Room({ socket }: any) {
         });
       }
     });
-    socket.on("joinRoom", (res: any) => {
-      if (res.userName !== user.userName) {
-        setOpponent({
-          isReady: opponent.isReady,
-          mora: opponent.mora,
-          userName: res.userName,
-        });
-        socket.emit("broadcast", { userName: user.userName, roomID });
-      }
+    socket.on("joinRoom", () => {
+      socket.emit("userJoin", { userName: user.userName, roomID });
     });
-    socket.on("onReady", (res: any) => {
+    socket.on("onReady", (res: SocketResT) => {
       if (res.userName !== user.userName) {
         setOpponent({
           mora: opponent.mora,
@@ -71,7 +70,7 @@ export default function Room({ socket }: any) {
     socket.on("start", () => {
       setGameState({ winner: "", state: GAME_STATE.START });
     });
-    socket.on("mora", (res: any) => {
+    socket.on("mora", (res: MoraT) => {
       if (res.userName !== user.userName) {
         setOpponent({
           isReady: opponent.isReady,
@@ -130,10 +129,13 @@ export default function Room({ socket }: any) {
         });
       }
     }
-    if(gameState.state === GAME_STATE.RESULT || gameState.state === GAME_STATE.TIE) {
-      setTimeout(() => { 
-        reset()
-      }, 3000)
+    if (
+      gameState.state === GAME_STATE.RESULT ||
+      gameState.state === GAME_STATE.TIE
+    ) {
+      setTimeout(() => {
+        reset();
+      }, 3000);
     }
   }, [gameState, isUserMora]);
   return (
@@ -235,9 +237,13 @@ export default function Room({ socket }: any) {
           </button>
         </div>
         <div className="flex flex-col items-center my-7">
-          {gameState.state === GAME_STATE.START && (
-            <div className="text-2xl text-red-500">{timer}</div>
-          )}
+          <div
+            className={`${
+              gameState.state === GAME_STATE.START ? "visible	" : "invisible"
+            } text-2xl text-red-500`}
+          >
+            {timer}
+          </div>
           {!opponent.isReady && !user.isReady && (
             <button
               className="border py-2 px-5 rounded-lg bg-gray-400"
@@ -261,7 +267,7 @@ export default function Room({ socket }: any) {
               開始
             </button>
           )}
-          {gameState.state === GAME_STATE.START && (
+          {(user.isReady || gameState.state === GAME_STATE.START) && (
             <button
               className="border py-2 px-5 rounded-lg bg-gray-400"
               disabled
